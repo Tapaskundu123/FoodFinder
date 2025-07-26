@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { userModel } from '../models/user.model.js';
+import { userModel } from '../Models/User.models.js';
 import { transporter } from '../DB/nodemailer.js';
 import validator from 'validator'; // For email validation
 import crypto from 'crypto';
@@ -67,8 +67,8 @@ export const stallDetails= async(req,res)=>{
     const mailOption={
         from: process.env.SENDER_EMAIL,
         to: email,
-        subject: '',
-        text: `Your Stall details are saved at FoodFinder You can see your details through go to this link ${}`
+        subject: 'FoodFinder Vendor details',
+        text: `Your Stall details are saved at FoodFinder.`
     }
 
     await transporter.sendMail(mailOption);
@@ -129,54 +129,6 @@ export const logout = (req, res) => {
             .json({ success: true, message: "User logged out" });
 };
 
-//send verification OTP to the user's email
-export const sendVerifyOtp = async (req, res) => {
-  try {
-    const { email } = req.body;
-    console.log(req.user)
-    const userId = req.user?.id; // Use req.user from middleware
-
-    if (!userId || !email) {
-      return res.status(400).json({ success: false, message: 'Missing userId or email' });
-    }
-
-    const user = await userModel.findById(userId);
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
-    }
-    if (user.email !== email) {
-      return res.status(400).json({ success: false, message: 'Email does not match user' });
-    }
-    if (user.isEmailVerified) {
-      return res.status(200).json({ success: true, message: 'User email already verified' });
-    }
-
-    const otp = crypto.randomInt(100000, 999999).toString();
-    user.verifyOtp = otp;
-    user.verifyOtpExpiredAt = Date.now() + 24 * 60 * 60 * 1000;
-    await user.save();
-
-    try {
-      await transporter.sendMail({
-        from: process.env.SENDER_EMAIL,
-        to: email,
-        subject: 'Account Verification OTP',
-        text: `Your OTP is ${otp}. Verify your account using this OTP.`,
-        
-      });
-    }
-     catch (emailError) {
-      console.error('Failed to send OTP email:', emailError.message);
-    }
-
-    console.log(otp);
-    return res.status(200).json({ success: true, message: 'Verification OTP sent to email' });
-  } catch (err) {
-    console.error('Send OTP error:', err.message);
-    return res.status(500).json({ success: false, message: 'Server error' });
-  }
-};
-
 export const verifyOtpChangePassword = async (req, res) => {
   const { otp } = req.body;
   const userId = req.user?.id;
@@ -217,13 +169,6 @@ export const verifyOtpChangePassword = async (req, res) => {
   }
 };
 
-export const isAuthenticated= async(req,res)=>{
-  try {
-    return res.json({success:true, message:"User is authenticated"})
-  } catch (error) {
-    console.error(error)
-  }
-}
 
 export const verifyEmailChangePassword = async (req, res) => {
   try {
