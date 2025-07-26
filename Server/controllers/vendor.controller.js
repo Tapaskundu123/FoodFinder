@@ -4,20 +4,24 @@ import {transporter} from '../DB/nodemailer.js'
 
 export const stallDetails= async(req,res)=>{
       
-    const {stallName, foodType, city, phoneNumber , address, location}= req.body;
+    const {stallName, foodType, city, phoneNumber , location}= req.body;
+
+    const id= req.user.id;
 
     try {
-        if(!stallName || !foodType || !city || !phoneNumber || !address || !location){
+        if(!stallName || !foodType || !city || !phoneNumber || !location){
             
             return res.status(400)
                       .json({success:false, message:"Missing details!"})
         }
-        const createVendorDetails= new UserModel({stallName, foodType, city, phoneNumber , address, location});
-        createVendorDetails.save();
+        const user= await UserModel.findById(id);
+
+        const createVendorDetails= user.set({stallName, foodType, city, phoneNumber , address, location});
+        await createVendorDetails.save();
         
     const mailOption={
         from: process.env.SENDER_EMAIL,
-        to: email,
+        to: user.email,
         subject: 'FoodFinder Vendor details',
         text: `Your Stall details are saved at FoodFinder.`
     }

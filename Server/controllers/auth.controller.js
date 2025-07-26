@@ -36,8 +36,8 @@ export const register = async (req, res) => {
     const mailOption={
         from: process.env.SENDER_EMAIL,
         to: email,
-        subject: 'Welcome to GreatStack',
-        text: `welcome to GreatStack website. Your account has been created with this email id ${email}`
+        subject: 'Welcome to FoodFinder',
+        text: `welcome to FoodFinder website. Your vendor account has been created with this email id ${email}`
     }
 
     await transporter.sendMail(mailOption);
