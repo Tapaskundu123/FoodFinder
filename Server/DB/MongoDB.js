@@ -5,7 +5,11 @@ const ConnectDB= async()=>{
 
     try {
  
-        await mongoose.connect(process.env.MONGODB_URI)
+        await mongoose.connect(process.env.MONGODB_URI, {
+              dbName: 'Vendor', 
+              useNewUrlParser: true,
+              useUnifiedTopology: true,
+            })
         console.log('✅ MongoDB Connected');
 
     } catch (err) {
