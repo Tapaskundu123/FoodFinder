@@ -1,6 +1,14 @@
 import express from 'express';
-import {login, register, logout, verifyOtpChangePassword , verifyEmailChangePassword, resetNewPassword} from '../Controllers/auth.controllers.js';
-import { UserAuthMiddleware } from '../middleware/userAuth.js';
+import {
+  register,
+  login,
+  logout,
+  verifyOtpChangePassword,
+  verifyEmailChangePassword,
+  resetNewPassword
+} from '../controllers/auth.controller.js'; // ✅ MUST include .js
+
+import { UserAuthMiddleware } from '../middlewares/auth.middleware.js';
 
 const authrouter= express.Router();
 
