@@ -27,7 +27,11 @@ const UserSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
-
+  role: {
+    type: String,
+    enum: ['user', 'vendor'],
+    default: 'user'
+  },
   // ────────── Vendor (optional) ──────────
   stallName: {
     type: String
@@ -42,15 +46,18 @@ const UserSchema = new mongoose.Schema({
     type: String
   },
  
-  location: {
+   location: {
     type: {
       type: String,
-      enum: ['Point']
+      enum: ['Point'],
+      default: 'Point'
     },
     coordinates: {
-      type: [Number]   // [ lng, lat ]
+      type: [Number], // [longitude, latitude]
+      default: [0, 0]
     }
-  }
+  },
+    
 });
 
 UserSchema.index({ location: '2dsphere' });

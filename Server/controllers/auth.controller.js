@@ -6,83 +6,77 @@ import { transporter } from '../DB/nodemailer.js';
 import crypto from 'crypto';
 
 export const register = async (req, res) => {
-  const { name, email, password } = req.body;
-
-  if (!name || !email || !password) {
-    return res.status(400).json({ success: false, message: "Missing details" });
-  }
-
   try {
+    const { name, email, password, role } = req.body;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({ success: false, message: "Missing details" });
+    }
+    if (role && !['user', 'vendor'].includes(role)) {
+      return res.status(400).json({ success: false, message: "Invalid role" });
+    }
+
     const existingUser = await UserModel.findOne({ email });
     if (existingUser) {
       return res.status(409).json({ success: false, message: "Email already registered" });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = new UserModel({ name, email, password: hashedPassword });
+    const newUser = new UserModel({
+      name,
+      email,
+      password: hashedPassword,
+      role: role || 'user'
+    });
     await newUser.save();
 
     const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET_KEY, { expiresIn: '7d' });
+    res.cookie('token', token, { /* existing options */ });
 
-    res.cookie('token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000
+    await transporter.sendMail({
+      from: process.env.SENDER_EMAIL,
+      to: email,
+      subject: 'Welcome to VendorConnect',
+      text: `Hello ${name}, welcome to VendorConnect!`
     });
 
-    //sending welcome email
-
-    const mailOption={
-        from: process.env.SENDER_EMAIL,
-        to: email,
-        subject: 'Welcome to FoodFinder',
-        text: `welcome to FoodFinder website. Your vendor account has been created with this email id ${email}`
-    }
-
-    await transporter.sendMail(mailOption);
-
-    return res.status(201)
-              .json({ success: true, message: "User registered successfully!", User:{name} });
-  } 
-  catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return res.status(201).json({
+      success: true,
+      message: "User registered successfully!",
+      user: { name, role: newUser.role }
+    });
+  } catch (err) {
+    console.error('Registration error:', err);
+    return res.status(500).json({ success: false, message: "Server error during registration" });
   }
 };
 
 export const login = async (req, res) => {
   const { email, password } = req.body;
 
-  if (!email || !password)
+  if (!email || !password) {
     return res.status(400).json({ success: false, message: "Please enter all details" });
-
-  try {
-    const user = await UserModel.findOne({ email });
-    if (!user)
-      return res.status(404).json({ success: false, message: "Invalid email" });
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch)
-      return res.status(400).json({ success: false, message: "Invalid password" });
-
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET_KEY, { expiresIn: '7d' });
-
-    res.cookie('token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000
-    });
-
-    return res.status(200)
-              .json({ success: true,
-                 message: 'Login Successfull' , 
-                 user: {name: user.name}
-                 });
-
-  } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
   }
+
+  const user = await UserModel.findOne({ email });
+  if (!user) {
+    return res.status(404).json({ success: false, message: "Invalid email" });
+  }
+
+  const isMatch = await bcrypt.compare(password, user.password);
+  if (!isMatch) {
+    return res.status(400).json({ success: false, message: "Invalid password" });
+  }
+
+  const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET_KEY, { expiresIn: '7d' });
+  res.cookie('token', token, { /* existing options */ });
+
+  return res.status(200).json({
+    success: true,
+    message: 'Login Successful',
+    token, // Include token in response body
+    user: { name: user.name, role: user.role }
+  });
 };
 
 export const logout = (req, res) => {

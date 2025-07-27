@@ -8,7 +8,8 @@ import 'dotenv/config';
 import cookieParser from 'cookie-parser';
 import ConnectDB from './DB/MongoDB.js';
 import authRoutes from './routes/auth.routes.js';
-import vendorRouter from './routes/vendor.routes.js';
+import vendorRoutes from './routes/vendor.routes.js';
+import { userModel } from './Models/User.models.js';
 
 ConnectDB();
 
@@ -19,46 +20,62 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL,
+    origin: 'http://localhost:5173',
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     credentials: true,
   }
 });
 
-// Middlewares
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(cors({
-  origin: process.env.FRONTEND_URL,
+  origin: 'http://localhost:5173',
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   credentials: true,
 }));
 
-// Logger
 app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} - Body: ${JSON.stringify(req.body)}`);
+  console.log(`[${req.method}] ${req.url}`);
   next();
 });
 
-// Static Files
 app.use(express.static(path.join(__dirname, 'public')));
-
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/vendor', vendorRouter);
 
 app.get('/', (_, res) => {
   res.send("API working at '/' route");
 });
 
-// Socket.IO
+app.use('/api/auth', authRoutes);
+app.use('/api/vendor', vendorRoutes);
+
+// Socket.IO logic for vendor location updates
 io.on('connection', (socket) => {
   console.log('🟢 Socket connected:', socket.id);
 
-  socket.on('locationUpdate', (coords) => {
-    console.log(`📍 Location from ${socket.id}:`, coords);
-    socket.broadcast.emit('locationUpdate', coords);
+  socket.on('locationUpdate', async (data) => {
+    const { userId, latitude, longitude } = data;
+    console.log(`📍 Location from ${socket.id}:`, data);
+
+    try {
+      // Update vendor location in MongoDB
+      await userModel.findByIdAndUpdate(userId, {
+        location: {
+          type: 'Point',
+          coordinates: [longitude, latitude]
+        }
+      });
+
+      // Broadcast to all clients
+      socket.broadcast.emit('vendorLocationUpdate', {
+        userId,
+        name: (await userModel.findById(userId)).name,
+        latitude,
+        longitude
+      });
+    } catch (err) {
+      console.error('Error updating location:', err);
+    }
   });
 
   socket.on('disconnect', () => {
@@ -66,19 +83,5 @@ io.on('connection', (socket) => {
   });
 });
 
-// Fallback 404
-app.use((req, res) => {
-  res.status(404).json({ message: 'Route not found' });
-});
-
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`🚀 Server running at http://localhost:${PORT}`));
-
-server.on('error', (err) => {
-  if (err.code === 'EADDRINUSE') {
-    console.log(`Port ${PORT} is in use, trying ${PORT + 1}...`);
-    server.listen(PORT + 1);
-  } else {
-    console.error('Server error:', err);
-  }
-});
